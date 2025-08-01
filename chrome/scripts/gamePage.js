@@ -428,7 +428,7 @@
 
     let cachedInfo = {};
 
-    function displayBadge(id) {
+    async function displayBadge(id) {
         const infoPath = cachedInfo[id];
         const colorA = textColors[0];
 
@@ -503,8 +503,24 @@
 
         const statsDiv = document.createElement("ul");
         statsDiv.style.display = "grid";
-        statsDiv.style.gridTemplateRows = "repeat(3, 1fr)"
-
+        
+        const toggles = coalesce(await getSetting("statsToggles"), {});
+        const [
+            showAwardedTotal,
+            showAwardedYesterday,
+            showRate,
+            showCreated,
+            showUpdated,
+            showAwardedDate
+        ] = [
+            toggles.awardTotal     ?? true,
+            toggles.awardYesterday ?? true,
+            toggles.rate           ?? true,
+            toggles.created        ?? true,
+            toggles.updated        ?? true,
+            toggles.awardDate      ?? true
+        ];
+		
         function statTemplate(title, val) {
             const statDiv = document.createElement("div");
             statDiv.style.justifyContent = "right";
@@ -526,12 +542,39 @@
             statsDiv.appendChild(statDiv);
         };
 
-        statTemplate("Awarded Total", infoPath[5]);
-        statTemplate("Awarded Yesterday", infoPath[6]);
-        statTemplate("Rate", Math.round(infoPath[7]*1000)/10+"%");
+        function formatUTCDate(dateStr) {
+            const date = new Date(dateStr);
+            const utcTime = date.getTime() + date.getTimezoneOffset() * 60000;
+            const offsetHours = -new Date().getTimezoneOffset() / 60;
+            const localTime = new Date(utcTime + offsetHours * 3600000);
+            const hh = String(localTime.getHours()).padStart(2, "0");
+            const mm = String(localTime.getMinutes()).padStart(2, "0");
+            const ss = String(localTime.getSeconds()).padStart(2, "0");
+            const dd = String(localTime.getDate()).padStart(2, "0");
+            const MM = String(localTime.getMonth() + 1).padStart(2, "0");
+            const yyyy = localTime.getFullYear();
+            return `${hh}:${mm}:${ss} UTC${offsetHours >= 0 ? "+" + offsetHours : offsetHours}, ${dd}/${MM}/${yyyy}`;
+        }
+
+        showAwardedTotal && statTemplate("Awarded Total", infoPath[5]);
+        showAwardedYesterday && statTemplate("Awarded Yesterday", infoPath[6]);
+        showRate && statTemplate("Rate", Math.round(infoPath[7]*1000)/10 + "%");
+        showCreated && statTemplate("Created", formatUTCDate(infoPath[9]));
+        showUpdated && statTemplate("Updated", formatUTCDate(infoPath[10]));
+        showAwardedDate && infoPath[12] && statTemplate("Awarded Date", formatUTCDate(infoPath[12]));
 
         contentDiv.appendChild(textDiv);
         contentDiv.appendChild(statsDiv);
+        const allStatsDivs = [];
+        const ro = new ResizeObserver(() => {
+            allStatsDivs.forEach(div => {
+                const totalH = div.parentElement.clientHeight;
+                const numRows = div.children.length || 1;
+                div.style.gridAutoRows = `${totalH / numRows}px`;
+            });
+        });
+        allStatsDivs.push(statsDiv);
+        ro.observe(contentDiv);
         item.appendChild(contentDiv);
         return item;
     };
@@ -685,13 +728,19 @@
             const owned = (await ownedPromise).data;
             const thumbnails = (await thumbnailsPromise).data;
 
+            const awardedDates = owned.reduce((map, b) => {
+                map[b.badgeId] = b.awardedDate;
+                return map;
+            }, {});
+
             processed++;
             updateStatus(processed);
 
             return {
                 badgeInfo: badgeInfo,
                 owned: owned,
-                thumbnails: thumbnails
+                thumbnails: thumbnails,
+                awardedDates: awardedDates
             };
         };
 
@@ -817,7 +866,7 @@
                     value = 1;
                 };
 
-                cachedInfo[id] = [owned.includes(id), value, thumbnails[id], badge.name, badge.description || "", badge.statistics.awardedCount, badge.statistics.pastDayAwardedCount, badge.statistics.winRatePercentage, badge.enabled, badge.created, badge.updated];
+                cachedInfo[id] = [owned.includes(id), value, thumbnails[id], badge.name, badge.description || "", badge.statistics.awardedCount, badge.statistics.pastDayAwardedCount, badge.statistics.winRatePercentage, badge.enabled, badge.created, badge.updated, undefined, result.awardedDates[id] || null];
             };
         };
 
@@ -883,7 +932,7 @@
             status.textContent = `Showing ${showing} of ${total} (${Math.round(showing/total*1000)/10}%)`;
         };
 
-        function display(page) {
+        async function display(page) {
             currentPage = page;
             displayPage.textContent = `${page+1}/${Math.ceil(filtered.length/pageSize)}`;
             newList.innerHTML = "";
@@ -893,7 +942,8 @@
                 const minIndex = page*pageSize;
                 const maxIndex = (page+1)*pageSize-1;
                 if (index >= minIndex && index <= maxIndex) {
-                    fragment.appendChild(displayBadge(id));
+                    const badgeItem = await displayBadge(id);
+                    fragment.appendChild(badgeItem);
                 };
                 index++;
             };
@@ -979,6 +1029,7 @@
                         for (const badge of owned) {
                             const id = badge.badgeId;
                             cachedInfo[id][0] = true;
+                            badge.awardedDate && (cachedInfo[id][12] = badge.awardedDate);
                         };
                         resolve();
                     });
