@@ -41,6 +41,52 @@
     
         setting.appendChild(btn);
     };
+
+    function addCheckmark(container, key, label, savedToggles, onChange) {
+        const wrapper = document.createElement("label");
+        wrapper.style.display = "flex";
+        wrapper.style.alignItems = "center";
+        wrapper.style.marginBottom = "6px";
+        wrapper.classList = "textTheme settingText";
+
+        const checkbox = document.createElement("div");
+        checkbox.style.appearance = "none";
+        checkbox.style.width = "18px";
+        checkbox.style.height = "18px";
+        checkbox.style.marginRight = "8px";
+        checkbox.style.border = "2px solid rgb(0, 255, 0)";
+        checkbox.style.borderRadius = "4px";
+        checkbox.style.backgroundColor = "transparent";
+        checkbox.style.position = "relative";
+        checkbox.style.display = "flex";
+        checkbox.style.alignItems = "center";
+        checkbox.style.justifyContent = "center";
+
+        const checkmark = document.createElement("span");
+        checkmark.style.fontSize = "14px";
+        checkmark.style.color = "rgb(255, 255, 255)";
+        checkbox.appendChild(checkmark);
+
+        let checked = savedToggles[key] ?? true;
+
+        function updateStyle() {
+            checkbox.style.backgroundColor = checked ? "rgb(0, 255, 0)" : "transparent";
+            checkmark.textContent = checked ? "✔" : "";
+        }
+
+        checkbox.addEventListener("click", () => {
+            checked = !checked;
+            savedToggles[key] = checked;
+            onChange(savedToggles);
+            updateStyle();
+        });
+
+        updateStyle();
+
+        wrapper.appendChild(checkbox);
+        wrapper.appendChild(document.createTextNode(label));
+        container.appendChild(wrapper);
+    }
     
     function getSetting(key) {
         const unique = `settings_${key}`;
@@ -117,6 +163,33 @@
 
     document.body.appendChild(displayValue);
 
+    const statsSettings = createSetting("Stats to Display");
+    statsSettings.style.flexDirection = "column";
+    statsSettings.style.alignItems = "flex-start";
+
+    const statOptions = [
+        { key: "awardTotal", label: "Awarded Total" },
+        { key: "awardYesterday", label: "Awarded Yesterday" },
+        { key: "rate", label: "Rate" },
+        { key: "created", label: "Created" },
+        { key: "updated", label: "Updated" },
+        { key: "awardDate", label: "Awarded Date" }
+    ];
+
+    let savedToggles = coalesce(await getSetting("statsToggles"), {});
+
+    statOptions.forEach(opt => {
+        if (savedToggles[opt.key] == null) savedToggles[opt.key] = true;
+    });
+
+    statOptions.forEach(opt => {
+        addCheckmark(statsSettings, opt.key, opt.label, savedToggles, (newToggles) => {
+            setSetting("statsToggles", newToggles);
+        });
+    });
+
+    document.body.appendChild(statsSettings);
+
     const discordDiv = document.createElement("div");
     discordDiv.style.display = "flex";
     discordDiv.style.justifyContent = "center";
@@ -126,7 +199,7 @@
     discordButton.classList = "settingButton";
     discordButton.textContent = "Join Discord";
     discordButton.style.padding = "5px 10px";
-    discordButton.style.color = "rgb(114, 137, 218)"; // Discord blurple
+    discordButton.style.color = "rgb(114, 137, 218)";
     discordButton.onclick = () => {
         window.open("https://discord.gg/4W95daxyCT", "_blank");
     };
