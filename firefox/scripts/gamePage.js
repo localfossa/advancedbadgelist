@@ -564,17 +564,11 @@
 
         contentDiv.appendChild(textDiv);
         contentDiv.appendChild(statsDiv);
-        const ro = new ResizeObserver(entries => {
-            for (const entry of entries) {
-                const div = entry.target.querySelector("ul");
-                if (!div) continue;
-
-                const totalH = entry.contentRect.height;
-                const numRows = div.children.length || 1;
-                div.style.gridAutoRows = `${totalH / numRows}px`;
-            }
+        requestAnimationFrame(() => {
+            const totalH = contentDiv.clientHeight;
+            const numRows = statsDiv.children.length || 1;
+            statsDiv.style.gridAutoRows = `${totalH / numRows}px`;
         });
-
         item.appendChild(contentDiv);
         return item;
     };
@@ -930,12 +924,13 @@
 
             status.textContent = `Showing ${showing} of ${total} (${Math.round(showing/total*1000)/10}%)`;
         };
-
+        
+        const toggles = coalesce(await getSetting("statsToggles"), {});
+        
         async function display(page) {
             currentPage = page;
             displayPage.textContent = `${page+1}/${Math.ceil(filtered.length/pageSize)}`;
             newList.innerHTML = "";
-            const toggles = coalesce(await getSetting("statsToggles"), {});
             const fragment = document.createDocumentFragment();
             let index = 0;
             for (const id of filtered) {
