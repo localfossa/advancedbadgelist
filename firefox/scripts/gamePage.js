@@ -428,7 +428,7 @@
 
     let cachedInfo = {};
 
-    async function displayBadge(id) {
+    function displayBadge(id, toggles) {
         const infoPath = cachedInfo[id];
         const colorA = textColors[0];
 
@@ -503,8 +503,7 @@
 
         const statsDiv = document.createElement("ul");
         statsDiv.style.display = "grid";
-        
-        const toggles = coalesce(await getSetting("statsToggles"), {});
+
         const [
             showAwardedTotal,
             showAwardedYesterday,
@@ -520,7 +519,7 @@
             toggles.updated        ?? true,
             toggles.awardDate      ?? true
         ];
-		
+
         function statTemplate(title, val) {
             const statDiv = document.createElement("div");
             statDiv.style.justifyContent = "right";
@@ -558,23 +557,24 @@
 
         showAwardedTotal && statTemplate("Awarded Total", infoPath[5]);
         showAwardedYesterday && statTemplate("Awarded Yesterday", infoPath[6]);
-        showRate && statTemplate("Rate", Math.round(infoPath[7]*1000)/10 + "%");
+        showRate && statTemplate("Rate", Math.round(infoPath[7]*1000)/10+"%");
         showCreated && statTemplate("Created", formatUTCDate(infoPath[9]));
         showUpdated && statTemplate("Updated", formatUTCDate(infoPath[10]));
         showAwardedDate && infoPath[12] && statTemplate("Awarded Date", formatUTCDate(infoPath[12]));
 
         contentDiv.appendChild(textDiv);
         contentDiv.appendChild(statsDiv);
-        const allStatsDivs = [];
-        const ro = new ResizeObserver(() => {
-            allStatsDivs.forEach(div => {
-                const totalH = div.parentElement.clientHeight;
+        const ro = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                const div = entry.target.querySelector("ul");
+                if (!div) continue;
+
+                const totalH = entry.contentRect.height;
                 const numRows = div.children.length || 1;
                 div.style.gridAutoRows = `${totalH / numRows}px`;
-            });
+            }
         });
-        allStatsDivs.push(statsDiv);
-        ro.observe(contentDiv);
+
         item.appendChild(contentDiv);
         return item;
     };
@@ -727,7 +727,6 @@
 
             const owned = (await ownedPromise).data;
             const thumbnails = (await thumbnailsPromise).data;
-
             const awardedDates = owned.reduce((map, b) => {
                 map[b.badgeId] = b.awardedDate;
                 return map;
@@ -936,14 +935,14 @@
             currentPage = page;
             displayPage.textContent = `${page+1}/${Math.ceil(filtered.length/pageSize)}`;
             newList.innerHTML = "";
+            const toggles = coalesce(await getSetting("statsToggles"), {});
             const fragment = document.createDocumentFragment();
             let index = 0;
             for (const id of filtered) {
                 const minIndex = page*pageSize;
                 const maxIndex = (page+1)*pageSize-1;
                 if (index >= minIndex && index <= maxIndex) {
-                    const badgeItem = await displayBadge(id);
-                    fragment.appendChild(badgeItem);
+                    fragment.appendChild(displayBadge(id, toggles));
                 };
                 index++;
             };
