@@ -1,0 +1,44 @@
+{
+    "manifest_version": 3,
+    "name": "Advanced Badge List",
+    "version": "1.3.400",
+    "description": "adds a better version of the badge list to the bottom of the game page",
+    "permissions": [
+        "storage", "activeTab"
+    ],
+    "host_permissions": [
+        "https://*.roblox.com/*",
+        "file:///*/*"
+    ],
+    "content_scripts": [
+        {
+            "matches": ["https://www.roblox.com/games/*"],
+            "js": ["scripts/gamePage.js"],
+            "run_at": "document_end"
+        },
+        {
+            "matches": ["https://www.roblox.com/badges/*"],
+            "js": ["scripts/badgePage.js"],
+            "run_at": "document_end"
+        },
+		{
+			"matches": ["https://www.roblox.com/users/*/inventory*", "https://www.roblox.com/users/*/profile*"],
+			"js": ["scripts/inventoryPage.js"],
+			"run_at": "document_end"
+		}
+    ],
+    "action": {
+        "default_icon": {
+            "16": "pngs/16.png",
+            "48": "pngs/48.png",
+            "128": "pngs/128.png"
+        },
+        "default_popup": "scripts/settings.html"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": ["NVL.json", "pngs/download.png", "scripts/settings.js"],
+            "matches": ["<all_urls>"]
+        }
+    ]
+}
